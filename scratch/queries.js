@@ -9,9 +9,11 @@ mongoose.connect(MONGODB_URI, { useNewUrlParser:true })
   .then(() => {
     const searchTerm = 'lady gaga';
     let filter = {};
+    const regex = new RegExp(searchTerm,'i');
 
     if (searchTerm) {
-      filter.title = { $regex: searchTerm, $options: 'i' };
+      filter ={$or :[{title:regex},
+      {content:regex}] };
     }
 
     return Note.find(filter).sort({ updatedAt: 'desc' });
