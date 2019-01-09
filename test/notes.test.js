@@ -8,9 +8,8 @@ const {notes} = require('../db/data');
 const expect = chai.expect;
 chai.use(chaiHttp);
 
-describe('Notes API resources',function(){
     before(function(){
-        return mongoose.connect(TEST_MONGODB_URI)
+        return mongoose.connect(TEST_MONGODB_URI,{useNewUrlParser:true})
         .then(()=>mongoose.connection.db.dropDatabase());
     });
     
@@ -152,4 +151,3 @@ return chai.request(app)
     });
   });
 
-});
