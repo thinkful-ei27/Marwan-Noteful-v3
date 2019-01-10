@@ -13,9 +13,15 @@ chai.use(chaiHttp);
         .then(()=>mongoose.connection.db.dropDatabase());
     });
     
-    beforeEach(function(){
-        return Note.insertMany(notes)
-    });
+    beforeEach(function () {
+    return Promise.all([
+      Note.insertMany(notes),
+      Folder.insertMany(folders)
+    ])
+      .then(() => {
+        return Note.createIndexes();
+      });
+  });
     
     afterEach(function(){
         return mongoose.connection.db.dropDatabase();
@@ -57,12 +63,13 @@ chai.use(chaiHttp);
                 expect(res).to.be.json;
       
                 expect(res.body).to.be.an('object');
-                expect(res.body).to.have.keys('id', 'title', 'content', 'createdAt', 'updatedAt');
+                expect(res.body).to.have.keys('id', 'title', 'content', 'createdAt','folderId','updatedAt');
       
                 // 3) then compare database results to API response
                 expect(res.body.id).to.equal(data.id);
                 expect(res.body.title).to.equal(data.title);
                 expect(res.body.content).to.equal(data.content);
+                expect(res.body.folderId).to.equal(note.folderId);
                 expect(new Date(res.body.createdAt)).to.eql(data.createdAt);
                 expect(new Date(res.body.updatedAt)).to.eql(data.updatedAt);
               });
@@ -88,7 +95,7 @@ return chai.request(app)
     expect(res).to.have.header('location');
     expect(res).to.be.json;
     expect(res.body).to.be.a('object');
-    expect(res.body).to.include.keys('id','title','content','createdAt', 'updatedAt')
+    expect(res.body).to.include.keys('id','title','content','createdAt','folderId','updatedAt')
 
     return Note.findById(res.body.id);
 })
@@ -96,6 +103,7 @@ return chai.request(app)
     expect(res.body.title).to.equal(note.title);
     expect(res.body.content).to.equal(note.content);
     expect(res.body.id).to.equal(note.id);
+    expect(res.body.folderId).to.equal(note.folderId);
     expect(new Date(res.body.createdAt)).to.eql(note.createdAt);
     expect(new Date(res.body.updatedAt)).to.eql(note.updatedAt);
 });
@@ -106,7 +114,8 @@ return chai.request(app)
       it('should update a note by id',function(){
           const updateObj = {
               title: "title updated",
-              content: "content updated"
+              content: "content updated",
+              folderId: "1111111111111102"
           }
 
           return Note
@@ -125,6 +134,8 @@ return chai.request(app)
           .then(function(note){
               expect(note.title).to.equal(updateObj.title);
               expect(note.content).to.equal(updateObj.content);
+              expect(note.folderId).to.equal(updateObj.folderId);
+
           });
       });
   });

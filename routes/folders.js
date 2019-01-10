@@ -14,6 +14,12 @@ router.get('/',(req, res, next) => {
 
 router.get('/:id',(req,res,next)=>{
     const id = req.params.id;
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const err = new Error('The `id` is not valid');
+      err.status = 400;
+      return next(err);
+    }
     Folder.findById(id)
     .then(results=> res.json(results))
     .catch(err=>next(err));
@@ -32,7 +38,7 @@ router.post('/',(req,res,next)=>{
       }
 
       Folder.create(newItem)
-      .then(results=> res.json(results))
+      .then(results=> res.location(`${req.originalUrl}/${results.id}`).status(201).json(results))
       .catch(err => {
         if (err.code === 11000) {
           err = new Error('The folder name already exists');
@@ -47,7 +53,13 @@ router.post('/',(req,res,next)=>{
 router.put('/:id', (req, res, next) => {
 
 const {id} = req.params;
+const { name } = req.body;
 
+if (!mongoose.Types.ObjectId.isValid(id)) {
+  const err = new Error('The `id` is not valid');
+  err.status = 400;
+  return next(err);
+}
 const updateObj = {};
 const updateableField = ['name'];
 
@@ -78,12 +90,32 @@ updateableField.forEach(field => {
 //   Delete folder
 
 router.delete('/:id', (req,res,next) => {
-    const id = req.params.id;
+  const { id } = req.params;
 
-    Folder.findByIdAndDelete(id)
-    .then(res.sendStatus(204))
-    .catch(err=> next(err));
+  /***** Never trust users - validate input *****/
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    const err = new Error('The `id` is not valid');
+    err.status = 400;
+    return next(err);
+  }
+
+  // ON DELETE SET NULL equivalent
+  const folderRemovePromise = Folder.findByIdAndRemove( id );
+  // ON DELETE CASCADE equivalent
+  // const noteRemovePromise = Note.deleteMany({ folderId: id });
+
+  const noteRemovePromise = Note.updateMany(
+    { folderId: id },
+    { $unset: { folderId: '' } }
+  );
+
+  Promise.all([folderRemovePromise, noteRemovePromise])
+    .then(() => {
+      res.status(204).end();
+    })
+    .catch(err => {
+      next(err);
+    });
 });
-
 
 module.exports = router;

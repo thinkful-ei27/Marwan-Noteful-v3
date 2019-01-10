@@ -17,26 +17,16 @@ router.get('/', (req, res, next) => {
   const regex = new RegExp(searchTerm, 'i');
   if (searchTerm) {
     filter = {
-      $or: [{
           title: regex
-        },
-        {
-          content: regex
-        }
-      ]
     };
   }
   if (folderId) {
     filter = {
-      $or: [{
-        title: regex
-      }, {
-        content: regex
-      }, {
-        folder_id: folderId
-      }]
+        title: regex,
+        folderId: folderId
+      }
     }
-  }
+  
 
   Note.find(filter).sort({
       updatedAt: 'desc'
@@ -48,9 +38,13 @@ router.get('/', (req, res, next) => {
 
 /* ========== GET/READ A SINGLE ITEM ========== */
 router.get('/:id', (req, res, next) => {
-
-  const id = req.params.id;
+const {id} = req.params;
   
+if (!mongoose.Types.ObjectId.isValid(id)) {
+  const err = new Error('The `id` is not valid');
+  err.status = 400;
+  return next(err);
+}
   Note
     .findById(id)
     .then(results => {
@@ -75,8 +69,14 @@ router.post('/', (req, res, next) => {
   const newItem = {
     title,
     content,
-    folder_id: folderId ? folderId : null
+    folderId
   };
+
+  if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
+    const err = new Error('The `folderId` is not valid');
+    err.status = 400;
+    return next(err);
+  }
   /***** Never trust users - validate input *****/
   if (!newItem.title) {
     const err = new Error('Missing `title` in request body');
@@ -86,7 +86,7 @@ router.post('/', (req, res, next) => {
 
   Note
     .create(newItem)
-    .then(result => res.location(`${req.originalUrl}/${result}`).status(201).json(result))
+    .then(result => res.location(`${req.originalUrl}/${result.id}`).status(201).json(result))
     .catch(err => next(err))
 });
 
@@ -94,10 +94,11 @@ router.post('/', (req, res, next) => {
 router.put('/:id', (req, res, next) => {
 
   const id = req.params.id;
+  const { title, content, folderId } = req.body;
 
   /***** Never trust users - validate input *****/
   const updateObj = {};
-  const updateableFields = ['title', 'content', 'folder_id'];
+  const updateableFields = ['title', 'content', 'folderId'];
 
   updateableFields.forEach(field => {
     if (field in req.body) {
@@ -108,6 +109,18 @@ router.put('/:id', (req, res, next) => {
   /***** Never trust users - validate input *****/
   if (!updateObj.title) {
     const err = new Error('Missing `title` in request body');
+    err.status = 400;
+    return next(err);
+  }
+
+  if(!mongoose.Types.ObjectId.isValid(id)){
+    const err = new Error('The `id` is not valid');
+    err.status = 400;
+    return next(err);
+  }
+
+  if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
+    const err = new Error('The `folderId` is not valid');
     err.status = 400;
     return next(err);
   }
@@ -127,6 +140,12 @@ router.delete('/:id', (req, res, next) => {
   const {
     id
   } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    const err = new Error('The `id` is not valid');
+    err.status = 400;
+    return next(err);
+  }
   Note
     .findByIdAndRemove(id)
 
