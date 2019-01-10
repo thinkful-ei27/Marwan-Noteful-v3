@@ -7,19 +7,40 @@ const router = express.Router();
 /* ========== GET/READ ALL ITEMS ========== */
 router.get('/', (req, res, next) => {
 
-  const { searchTerm } = req.query;
+  const {
+    searchTerm
+  } = req.query;
+  const {
+    folderId
+  } = req.query;
   let filter = {};
-  const regex = new RegExp(searchTerm,'i');
+  const regex = new RegExp(searchTerm, 'i');
   if (searchTerm) {
     filter = {
-      $or: [
-        { title: regex },
-        { content: regex }
+      $or: [{
+          title: regex
+        },
+        {
+          content: regex
+        }
       ]
     };
   }
+  if (folderId) {
+    filter = {
+      $or: [{
+        title: regex
+      }, {
+        content: regex
+      }, {
+        folder_id: folderId
+      }]
+    }
+  }
 
-  Note.find(filter).sort({ updatedAt: 'desc' })
+  Note.find(filter).sort({
+      updatedAt: 'desc'
+    })
     .then(notes => res.json(notes))
     .catch(err => console.error(err));
 
@@ -28,12 +49,10 @@ router.get('/', (req, res, next) => {
 /* ========== GET/READ A SINGLE ITEM ========== */
 router.get('/:id', (req, res, next) => {
 
-  const {
-    id
-  } = req.params;
-
+  const id = req.params.id;
+  
   Note
-  .findById(id)
+    .findById(id)
     .then(results => {
       res.json(results)
     })
@@ -48,13 +67,16 @@ router.post('/', (req, res, next) => {
 
   const {
     title,
-    content
+    content,
+    folderId
   } = req.body;
 
 
   const newItem = {
     title,
-    content  };
+    content,
+    folder_id: folderId ? folderId : null
+  };
   /***** Never trust users - validate input *****/
   if (!newItem.title) {
     const err = new Error('Missing `title` in request body');
@@ -63,9 +85,9 @@ router.post('/', (req, res, next) => {
   }
 
   Note
-  .create(newItem)
-  .then(result=>res.location(`${req.originalUrl}/${result}`).status(201).json(result))
-  .catch(err=>next(err))
+    .create(newItem)
+    .then(result => res.location(`${req.originalUrl}/${result}`).status(201).json(result))
+    .catch(err => next(err))
 });
 
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
@@ -75,7 +97,7 @@ router.put('/:id', (req, res, next) => {
 
   /***** Never trust users - validate input *****/
   const updateObj = {};
-  const updateableFields = ['title', 'content'];
+  const updateableFields = ['title', 'content', 'folder_id'];
 
   updateableFields.forEach(field => {
     if (field in req.body) {
@@ -91,23 +113,25 @@ router.put('/:id', (req, res, next) => {
   }
 
   Note
-  .findByIdAndUpdate(id,updateObj)
-  .then(results=>{
-    res.json(results)
-  })
-  .catch(err=>next(err))
+    .findByIdAndUpdate(id, updateObj)
+    .then(results => {
+      res.json(results)
+    })
+    .catch(err => next(err))
 
 });
 
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */
 router.delete('/:id', (req, res, next) => {
 
-  const {id} = req.params;
- Note
-.findByIdAndRemove(id)
+  const {
+    id
+  } = req.params;
+  Note
+    .findByIdAndRemove(id)
 
-.then(res.sendStatus(204))
-.catch(err=> next(err))
+    .then(res.sendStatus(204))
+    .catch(err => next(err))
 });
 
 module.exports = router;
