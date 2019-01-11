@@ -3,6 +3,7 @@
 const express = require('express');
 const Note = require('../models/note');
 const router = express.Router();
+const mongoose = require('mongoose');
 
 /* ========== GET/READ ALL ITEMS ========== */
 router.get('/', (req, res, next) => {
@@ -93,28 +94,18 @@ router.post('/', (req, res, next) => {
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
 router.put('/:id', (req, res, next) => {
 
-  const id = req.params.id;
+  const { id } = req.params;
   const { title, content, folderId } = req.body;
 
   /***** Never trust users - validate input *****/
-  const updateObj = {};
-  const updateableFields = ['title', 'content', 'folderId'];
-
-  updateableFields.forEach(field => {
-    if (field in req.body) {
-      updateObj[field] = req.body[field];
-    }
-  });
-
-  /***** Never trust users - validate input *****/
-  if (!updateObj.title) {
-    const err = new Error('Missing `title` in request body');
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    const err = new Error('The `id` is not valid');
     err.status = 400;
     return next(err);
   }
 
-  if(!mongoose.Types.ObjectId.isValid(id)){
-    const err = new Error('The `id` is not valid');
+  if (!title) {
+    const err = new Error('Missing `title` in request body');
     err.status = 400;
     return next(err);
   }
@@ -125,13 +116,19 @@ router.put('/:id', (req, res, next) => {
     return next(err);
   }
 
-  Note
-    .findByIdAndUpdate(id, updateObj)
-    .then(results => {
-      res.json(results)
-    })
-    .catch(err => next(err))
+  const updateNote = { title, content, folderId };
 
+  Note.findByIdAndUpdate(id, updateNote, { new: true })
+    .then(result => {
+      if (result) {
+        res.json(result);
+      } else {
+        next();
+      }
+    })
+    .catch(err => {
+      next(err);
+    });
 });
 
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */

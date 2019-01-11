@@ -1,6 +1,7 @@
 const express = require('express');
 const Folder = require('../models/folder');
 const router = express.Router();
+const mongoose = require('mongoose');
 
 router.get('/',(req, res, next) => {
 
@@ -98,20 +99,11 @@ router.delete('/:id', (req,res,next) => {
     err.status = 400;
     return next(err);
   }
+ 
 
-  // ON DELETE SET NULL equivalent
-  const folderRemovePromise = Folder.findByIdAndRemove( id );
-  // ON DELETE CASCADE equivalent
-  // const noteRemovePromise = Note.deleteMany({ folderId: id });
-
-  const noteRemovePromise = Note.updateMany(
-    { folderId: id },
-    { $unset: { folderId: '' } }
-  );
-
-  Promise.all([folderRemovePromise, noteRemovePromise])
+  Folder.findByIdAndRemove(id)
     .then(() => {
-      res.status(204).end();
+      res.sendStatus(204);
     })
     .catch(err => {
       next(err);

@@ -11,15 +11,14 @@ const expect = chai.expect;
 chai.use(chaiHttp);
 
 
-before(function(){
+describe('Folders test',function(){
+  before(function(){
     return mongoose.connect(TEST_MONGODB_URI,{useNewUrlParser:true})
     .then(()=>mongoose.connection.db.dropDatabase());
 });
 
 beforeEach(function(){
-    return Promise.all([ Folder.insertMany(folders),
-        Folder.createIndexes()])
-    
+    return Folder.insertMany(folders);
 });
 
 afterEach(function(){
@@ -29,6 +28,9 @@ afterEach(function(){
 after(function(){
     return mongoose.disconnect();
 });
+
+
+
 
 describe('GET /api/folders', function () {
     it('should return the correct number of folders', function () {
@@ -92,31 +94,13 @@ describe('GET /api/folders', function () {
                 });
             });
         
-            it('should respond with a 400 for an invalid id', function () {
-              return chai.request(app)
-                .get('/api/folders/NOT-A-VALID-ID')
-                .then(res => {
-                  expect(res).to.have.status(400);
-                  expect(res.body.message).to.eq('The `id` is not valid');
-                });
-            });
-        
-            it('should respond with a 404 for an ID that does not exist', function () {
-              // The string "DOESNOTEXIST" is 12 bytes which is a valid Mongo ObjectId
-              return chai.request(app)
-                .get('/api/folders/DOESNOTEXIST')
-                .then(res => {
-                  expect(res).to.have.status(404);
-                });
-            });
-        
           });
 
 describe('POST endpoint',function(){
 
 it('should add a new folder',function(){
     const newFolder = {
-        title: "new name"
+        name: "new name"
     }
 
     let res;
@@ -140,32 +124,7 @@ expect(new Date(res.body.createdAt)).to.eql(folder.createdAt);
 expect(new Date(res.body.updatedAt)).to.eql(folder.updatedAt);
 });
 });
-it('should return an error when missing "name" field', function () {
-    const newItem = { 'foo': 'bar' };
-    return chai.request(app)
-      .post('/api/folders')
-      .send(newItem)
-      .then(res => {
-        expect(res).to.have.status(400);
-        expect(res).to.be.json;
-        expect(res.body).to.be.a('object');
-        expect(res.body.message).to.equal('Missing `name` in request body');
-      });
-  });
 
-  it('should return an error when given a duplicate name', function () {
-    return Folder.findOne()
-      .then(data => {
-        const newItem = { 'name': data.name };
-        return chai.request(app).post('/api/folders').send(newItem);
-      })
-      .then(res => {
-        expect(res).to.have.status(400);
-        expect(res).to.be.json;
-        expect(res.body).to.be.a('object');
-        expect(res.body.message).to.equal('Folder name already exists');
-      });
-  });
 });
 
 describe('PUT endpoint',function(){
@@ -191,85 +150,31 @@ describe('PUT endpoint',function(){
           expect(folder.name).to.equal(updateObj.name);
       });
   });
-  
-  it('should respond with a 400 for an invalid id', function () {
-    const updateItem = { 'name': 'Blah' };
-    return chai.request(app)
-      .put('/api/folders/NOT-A-VALID-ID')
-      .send(updateItem)
-      .then(res => {
-        expect(res).to.have.status(400);
-        expect(res.body.message).to.eq('The `id` is not valid');
-      });
-  });
 
-  it('should respond with a 404 for an id that does not exist', function () {
-    const updateItem = { 'name': 'Blah' };
-    // The string "DOESNOTEXIST" is 12 bytes which is a valid Mongo ObjectId
-    return chai.request(app)
-      .put('/api/folders/DOESNOTEXIST')
-      .send(updateItem)
-      .then(res => {
-        expect(res).to.have.status(404);
-      });
-  });
 
-  it('should return an error when missing "name" field', function () {
-    const updateItem = {};
+});
+
+describe('DELETE /api/folders/:id', function () {
+
+  it('should delete an existing document and respond with 204', function () {
     let data;
     return Folder.findOne()
       .then(_data => {
         data = _data;
-        return chai.request(app).put(`/api/folders/${data.id}`).send(updateItem);
+        return chai.request(app).delete(`/api/folders/${data.id}`);
       })
-      .then(res => {
-        expect(res).to.have.status(400);
-        expect(res).to.be.json;
-        expect(res.body).to.be.a('object');
-        expect(res.body.message).to.equal('Missing `name` in request body');
-      });
-  });
-
-  it('should return an error when given a duplicate name', function () {
-    return Folder.find().limit(2)
-      .then(results => {
-        const [item1, item2] = results;
-        item1.name = item2.name;
-        return chai.request(app)
-          .put(`/api/folders/${item1.id}`)
-          .send(item1);
-      })
-      .then(res => {
-        expect(res).to.have.status(400);
-        expect(res).to.be.json;
-        expect(res.body).to.be.a('object');
-        expect(res.body.message).to.equal('Folder name already exists');
-      });
-  });
-
-
-});
-
-describe('DELETE endpoint',function(){
-
-it('should delete a folder by id',function(){
-    let folder;
-
-    return Folder
-    .findOne()
-    .then(function(_folder){
-        folder = _folder;
-        return chai.request(app)
-        .delete(`/api/folders/${folder.id}`);
-    })
-    .then(function(res){
+      .then(function (res) {
         expect(res).to.have.status(204);
-        return Folder.findById(folder.id);
-    })
-    .then(function(_folder){
-        expect(_folder).to.be.null;
-    });
-});
+        expect(res.body).to.be.empty;
+        return Folder.countDocuments({ _id: data.id });
+      })
+      .then(count => {
+        expect(count).to.equal(0);
+      });
+  });
+
 });
 
+
+});
 
