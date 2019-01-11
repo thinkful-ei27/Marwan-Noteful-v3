@@ -14,6 +14,8 @@ router.get('/', (req, res, next) => {
   const {
     folderId
   } = req.query;
+
+  const {tagId} = req.query;
   let filter = {};
   const regex = new RegExp(searchTerm, 'i');
   if (searchTerm) {
@@ -27,9 +29,13 @@ router.get('/', (req, res, next) => {
         folderId: folderId
       }
     }
+
+    if(tagId){
+      filter.tags = tagId;
+    }
   
 
-  Note.find(filter).sort({
+  Note.find(filter).populate('tags').sort({
       updatedAt: 'desc'
     })
     .then(notes => res.json(notes))
@@ -47,7 +53,7 @@ if (!mongoose.Types.ObjectId.isValid(id)) {
   return next(err);
 }
   Note
-    .findById(id)
+    .findById(id).populate('tags')
     .then(results => {
       res.json(results)
     })
@@ -63,14 +69,14 @@ router.post('/', (req, res, next) => {
   const {
     title,
     content,
-    folderId
+    folderId,tags = []
   } = req.body;
 
 
   const newItem = {
     title,
     content,
-    folderId
+    folderId,tags
   };
 
   if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
@@ -78,6 +84,14 @@ router.post('/', (req, res, next) => {
     err.status = 400;
     return next(err);
   }
+
+  tags.forEach((tag) => {
+    if (!mongoose.Types.ObjectId.isValid(tag)) {
+      const err = new Error('The `id` is not valid');
+      err.status = 400;
+      return next(err);
+    }
+  });
   /***** Never trust users - validate input *****/
   if (!newItem.title) {
     const err = new Error('Missing `title` in request body');
@@ -95,7 +109,7 @@ router.post('/', (req, res, next) => {
 router.put('/:id', (req, res, next) => {
 
   const { id } = req.params;
-  const { title, content, folderId } = req.body;
+  const { title, content, folderId,tags } = req.body;
 
   /***** Never trust users - validate input *****/
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -116,7 +130,16 @@ router.put('/:id', (req, res, next) => {
     return next(err);
   }
 
-  const updateNote = { title, content, folderId };
+  if (tags) {
+    const invalidIds = tags.filter((tag) => !mongoose.Types.ObjectId.isValid(tag));
+    if (invalidIds.length) {
+      const err = new Error('The `tags` array contains an invalid `id`');
+      err.status = 400;
+      return next(err);
+    }
+  }
+
+  const updateNote = { title, content, folderId,tags };
 
   Note.findByIdAndUpdate(id, updateNote, { new: true })
     .then(result => {

@@ -12,13 +12,17 @@ const {
 const {
     folders
 } = require('../db/data');
+
+const { tags } = require('../db/data');
+
 const Folder = require('../models/folder');
+const Tag = require('../models/tag');
 const expect = chai.expect;
 chai.use(chaiHttp);
 
 
 
-describe.only('Notes test', function () {
+describe('Notes test', function () {
     before(function () {
         return mongoose.connect(TEST_MONGODB_URI, {
                 useNewUrlParser: true
@@ -29,11 +33,11 @@ describe.only('Notes test', function () {
     beforeEach(function () {
         return Promise.all([
                 Note.insertMany(notes),
-                Folder.insertMany(folders)
-            ])
-            .then(() => {
-                return Note.createIndexes();
-            })
+                Folder.insertMany(folders),
+                Folder.createIndexes(),
+                Tag.insertMany(tags),
+                Tag.createIndexes()
+            ]);
     });
 
     afterEach(function () {
@@ -134,6 +138,26 @@ describe.only('Notes test', function () {
                 });
         });
 
+        it('should return correct search results for a tagId query', function () {
+            let data;
+            return Folder.findOne()
+                .then((_data) => {
+                    data = _data;
+                    return Promise.all([
+                        Note.find({
+                            tagId: data.id
+                        }),
+                        chai.request(app).get(`/api/notes?tagId=${data.id}`)
+                    ]);
+                })
+                .then(([data, res]) => {
+                    expect(res).to.have.status(200);
+                    expect(res).to.be.json;
+                    expect(res.body).to.be.a('array');
+                    expect(res.body).to.have.length(data.length);
+                });
+        });
+
         it('should return an empty array for an incorrect query', function () {
             const searchTerm = 'NotValid';
             // const re = new RegExp(searchTerm, 'i');
@@ -168,7 +192,7 @@ describe.only('Notes test', function () {
                     expect(res).to.have.status(200);
                     expect(res).to.be.json;
                     expect(res.body).to.be.an('object');
-                    expect(res.body).to.have.keys('id', 'title', 'content', 'createdAt', 'updatedAt', 'folderId');
+                    expect(res.body).to.have.keys('id', 'title', 'content', 'createdAt', 'updatedAt', 'folderId','tags');
 
                     expect(res.body.id).to.equal(data.id);
                     expect(res.body.title).to.equal(data.title);
@@ -188,28 +212,27 @@ describe.only('Notes test', function () {
                 title: "new title",
                 content: "new content",
             }
-
             let res;
             return chai.request(app)
-                .post('/api/notes')
-                .send(newNote)
-                .then(function (_res) {
-                    res = _res;
-                    expect(res).to.have.status(201);
-                    expect(res).to.have.header('location');
-                    expect(res).to.be.json;
-                    expect(res.body).to.be.a('object');
-                    expect(res.body).to.have.all.keys('id', 'title', 'content', 'createdAt', 'updatedAt');
-                    return Note.findById(res.body.id);
-                })
-                .then(data => {
-                    expect(res.body.id).to.equal(data.id);
-                    expect(res.body.title).to.equal(data.title);
-                    expect(res.body.content).to.equal(data.content);
-                    expect(new Date(res.body.createdAt)).to.deep.equal(data.createdAt);
-                    expect(new Date(res.body.updatedAt)).to.deep.equal(data.updatedAt);
-                });
-        });
+              .post('/api/notes')
+              .send(newNote)
+              .then(function (_res) {
+                res = _res;
+                expect(res).to.have.status(201);
+                expect(res).to.have.header('location');
+                expect(res).to.be.json;
+                expect(res.body).to.be.a('object');
+                expect(res.body).to.have.all.keys('id', 'title', 'content', 'createdAt', 'updatedAt', 'tags');
+                return Note.findById(res.body.id);
+              })
+              .then(data => {
+                expect(res.body.id).to.equal(data.id);
+                expect(res.body.title).to.equal(data.title);
+                expect(res.body.content).to.equal(data.content);
+                expect(new Date(res.body.createdAt)).to.deep.equal(data.createdAt);
+                expect(new Date(res.body.updatedAt)).to.deep.equal(data.updatedAt);
+              });
+          });
     });
 
     describe('PUT endpoint', function () {
@@ -230,7 +253,7 @@ describe.only('Notes test', function () {
                   expect(res).to.have.status(200);
                   expect(res).to.be.json;
                   expect(res.body).to.be.a('object');
-                  expect(res.body).to.have.keys('id', 'title', 'content', 'createdAt', 'updatedAt', 'folderId');
+                  expect(res.body).to.have.keys('id', 'title', 'content', 'createdAt', 'updatedAt', 'folderId','tags');
         
                   expect(res.body.id).to.equal(data.id);
                   expect(res.body.title).to.equal(updateItem.title);
